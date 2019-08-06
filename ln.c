@@ -47,6 +47,14 @@ static int ln(const char *path, int dirfd, const char *target, int sym, int forc
 			fprintf(stderr, "ln: %s: %s\n", target, strerror(EEXIST));
 			return 1;
 		}
+
+		struct stat s2;
+		if (stat(path, &s2) == 0) {
+			if (st.st_dev == s2.st_dev && st.st_ino == s2.st_ino) {
+				fprintf(stderr, "ln: %s -> %s: same file\n", path, target);
+				return 1;
+			}
+		}
 		
 		if (unlinkat(dirfd, target, 0) != 0) {
 			fprintf(stderr, "ln: %s: %s\n", target, strerror(errno));
