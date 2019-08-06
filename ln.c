@@ -35,29 +35,33 @@
 #define O_SEARCH 0
 #endif
 
-static int ln(const char *path, int dirfd, int sym, int force, int flag)
+static int ln(const char *path, int dirfd, const char *target, int sym, int force, int flag)
 {
+	if (!target) {
+		target = path;
+	}
+
 	struct stat st;
-	if (fstatat(dirfd, path, &st, AT_SYMLINK_NOFOLLOW) == 0) {
+	if (fstatat(dirfd, target, &st, AT_SYMLINK_NOFOLLOW) == 0) {
 		if (!force) {
-			fprintf(stderr, "ln: %s: %s\n", path, strerror(EEXIST));
+			fprintf(stderr, "ln: %s: %s\n", target, strerror(EEXIST));
 			return 1;
 		}
 		
-		if (unlinkat(dirfd, path, 0) != 0) {
-			fprintf(stderr, "ln: %s: %s\n", path, strerror(errno));
+		if (unlinkat(dirfd, target, 0) != 0) {
+			fprintf(stderr, "ln: %s: %s\n", target, strerror(errno));
 			return 1;
 		}
 	}
 
 	if (sym) {
-		if (symlinkat(path, dirfd, path) != 0) {
-			fprintf(stderr, "ln: %s: %s\n", path, strerror(errno));
+		if (symlinkat(path, dirfd, target) != 0) {
+			fprintf(stderr, "ln: %s -> %s: %s\n", path, target, strerror(errno));
 			return 1;
 		}
 	} else {
-		if (linkat(AT_FDCWD, path, dirfd, path, flag) != 0) {
-			fprintf(stderr, "ln: %s: %s\n", path, strerror(errno));
+		if (linkat(AT_FDCWD, path, dirfd, target, flag) != 0) {
+			fprintf(stderr, "ln: %s -> %s: %s\n", path, target, strerror(errno));
 			return 1;
 		}
 	}
@@ -105,46 +109,20 @@ int main(int argc, char *argv[])
 	char *target = argv[argc - 1];
 
 	int dirfd = open(target, O_SEARCH | O_DIRECTORY);
-	if (dirfd == -1) {
-		if (errno == ENOTDIR) {
-			/* not a directory */
-		} else if (errno == ENOENT) {
-			/* doesn't exist */
-		} else {
-			return 1;
+	if (argc - optind == 2) {
+		if (dirfd == -1) {
+			dirfd = AT_FDCWD;
 		}
+		return ln(argv[optind], dirfd, target, symbolic, force, flag);
 	}
 
-	if (argc - optind == 2) {
-		struct stat st;
-		if (stat(target, &st) == 0) {
-			if (S_ISDIR(st.st_mode)) {
-				return ln(argv[optind], dirfd, symbolic, force, flag);
-			}
-
-			if (!force) {
-				fprintf(stderr, "ln: %s: %s\n", target, strerror(EEXIST));
-				return 1;
-			}
-
-			if (unlink(target) != 0) {
-				fprintf(stderr, "ln: %s: %s\n", target, strerror(errno));
-				return 1;
-			}
-		}
-
-		int r = symbolic ? symlink(argv[optind], target) :
-				link(argv[optind], target);
-		if (r != 0) {
-			fprintf(stderr, "ln: %s -> %s: %s\n", argv[optind], target, strerror(errno));
-		}
-
-		return r;
+	if (dirfd == -1) {
+		fprintf(stderr, "ln: %s: %s\n", target, strerror(errno));
 	}
 
 	int r = 0;
 	do {
-		r |= ln(argv[optind++], dirfd, symbolic, force, flag);
+		r |= ln(argv[optind++], dirfd, NULL, symbolic, force, flag);
 	} while (optind < argc - 1);
 	return r;
 }
