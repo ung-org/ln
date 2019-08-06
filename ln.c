@@ -38,26 +38,26 @@
 static int ln(const char *path, int dirfd, int sym, int force, int flag)
 {
 	struct stat st;
-	if (fstatat(dirfd, path, &st, 0) == 0) {
+	if (fstatat(dirfd, path, &st, AT_SYMLINK_NOFOLLOW) == 0) {
 		if (!force) {
-			fprintf(stderr, "ln: %s: %s\n", strerror(EEXIST));
+			fprintf(stderr, "ln: %s: %s\n", path, strerror(EEXIST));
 			return 1;
 		}
 		
 		if (unlinkat(dirfd, path, 0) != 0) {
-			fprintf(stderr, "ln: %s: %s\n", strerror(errno));
+			fprintf(stderr, "ln: %s: %s\n", path, strerror(errno));
 			return 1;
 		}
 	}
 
 	if (sym) {
 		if (symlinkat(path, dirfd, path) != 0) {
-			fprintf(stderr, "ln: %s: %s\n", strerror(errno));
+			fprintf(stderr, "ln: %s: %s\n", path, strerror(errno));
 			return 1;
 		}
 	} else {
 		if (linkat(AT_FDCWD, path, dirfd, path, flag) != 0) {
-			fprintf(stderr, "ln: %s: %s\n", strerror(errno));
+			fprintf(stderr, "ln: %s: %s\n", path, strerror(errno));
 			return 1;
 		}
 	}
