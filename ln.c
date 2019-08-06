@@ -112,6 +112,8 @@ int main(int argc, char *argv[])
 	if (argc - optind == 2) {
 		if (dirfd == -1) {
 			dirfd = AT_FDCWD;
+		} else {
+			target = NULL;
 		}
 		return ln(argv[optind], dirfd, target, symbolic, force, flag);
 	}
