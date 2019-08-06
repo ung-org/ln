@@ -35,7 +35,9 @@
 #define O_SEARCH 0
 #endif
 
-static int ln(const char *path, int dirfd, const char *target, int sym, int force, int flag)
+enum { SYMBOLIC = 1 << 0, FORCE = 1 << 1 };
+
+static int ln(const char *path, int dirfd, const char *target, int lnflag, int atflag)
 {
 	if (!target) {
 		target = path;
@@ -43,7 +45,7 @@ static int ln(const char *path, int dirfd, const char *target, int sym, int forc
 
 	struct stat st;
 	if (fstatat(dirfd, target, &st, AT_SYMLINK_NOFOLLOW) == 0) {
-		if (!force) {
+		if (!(lnflag & FORCE)) {
 			fprintf(stderr, "ln: %s: %s\n", target, strerror(EEXIST));
 			return 1;
 		}
@@ -62,13 +64,13 @@ static int ln(const char *path, int dirfd, const char *target, int sym, int forc
 		}
 	}
 
-	if (sym) {
+	if (lnflag & SYMBOLIC) {
 		if (symlinkat(path, dirfd, target) != 0) {
 			fprintf(stderr, "ln: %s -> %s: %s\n", path, target, strerror(errno));
 			return 1;
 		}
 	} else {
-		if (linkat(AT_FDCWD, path, dirfd, target, flag) != 0) {
+		if (linkat(AT_FDCWD, path, dirfd, target, atflag) != 0) {
 			fprintf(stderr, "ln: %s -> %s: %s\n", path, target, strerror(errno));
 			return 1;
 		}
@@ -81,27 +83,26 @@ int main(int argc, char *argv[])
 {
 	setlocale(LC_ALL, "");
 
-	int flag = 0;
-	int symbolic = 0;
-	int force = 0;
+	int atflag = AT_SYMLINK_FOLLOW;
+	int lnflag = 0;
 
 	int c;
 	while ((c = getopt(argc, argv, "fsLP")) != -1) {
 		switch (c) {
 		case 'L':
-			flag = AT_SYMLINK_FOLLOW;
+			atflag = AT_SYMLINK_FOLLOW;
 			break;
 
 		case 'P':
-			flag = 0;
+			atflag = 0;
 			break;
 
 		case 's':
-			symbolic = 1;
+			lnflag |= SYMBOLIC;
 			break;
 
 		case 'f':
-			force = 1;
+			lnflag |= FORCE;
 			break;
 
 		default:
@@ -123,7 +124,7 @@ int main(int argc, char *argv[])
 		} else {
 			target = NULL;
 		}
-		return ln(argv[optind], dirfd, target, symbolic, force, flag);
+		return ln(argv[optind], dirfd, target, lnflag, atflag);
 	}
 
 	if (dirfd == -1) {
@@ -132,7 +133,7 @@ int main(int argc, char *argv[])
 
 	int r = 0;
 	do {
-		r |= ln(argv[optind++], dirfd, NULL, symbolic, force, flag);
+		r |= ln(argv[optind++], dirfd, NULL, lnflag, atflag);
 	} while (optind < argc - 1);
 	return r;
 }
