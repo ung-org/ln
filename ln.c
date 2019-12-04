@@ -25,6 +25,7 @@
 #define _POSIX_C_SOURCE 200809L
 #include <errno.h>
 #include <fcntl.h>
+#include <libgen.h>
 #include <locale.h>
 #include <stdio.h>
 #include <string.h>
@@ -39,8 +40,10 @@ enum { SYMBOLIC = 1 << 0, FORCE = 1 << 1 };
 
 static int ln(const char *path, int dirfd, const char *target, int lnflag, int atflag)
 {
+	char base[strlen(path) + 1];
 	if (!target) {
-		target = path;
+		strcpy(base, path);
+		target = basename(base);
 	}
 
 	struct stat st;
